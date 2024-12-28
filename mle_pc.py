@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from pgmpy.base import DAG
 from pgmpy.inference import VariableElimination
+from pgmpy.sampling import BayesianModelSampling
 
 
 # Load the dataset with proper delimiter
@@ -98,12 +99,13 @@ scenarios = [
 ]
 
 # Compute baseline probabilities for queries
+parent_nodes = ["car"]
+
 print("Baseline Probabilities:")
-for scenario in scenarios:
-    query = scenario["query"]
-    baseline = inference.query(variables=[query])
-    print(f"Query: {query}")
-    print(baseline, "\n")
+for parent in parent_nodes:
+    result = inference.query(variables=[parent])
+    print(f"Query: {parent}")
+    print(result, "\n")
 
 # Compute probabilities with evidence
 print("Probabilities with Evidence:")
@@ -113,3 +115,110 @@ for i, scenario in enumerate(scenarios, 1):
     result = inference.query(variables=[query], evidence=evidence)
     print(f"Scenario {i}: Evidence={evidence}, Query={query}")
     print(result, "\n")
+
+parent_nodes = ["buying", "maint", "lug_boot", "persons", "safety"]
+
+print("Baseline Probabilities:")
+for parent in parent_nodes:
+    result = inference.query(variables=[parent])
+    print(f"Query: {parent}")
+    print(result, "\n")
+
+scenarios = [
+    {"evidence": {"car": "unacc"}, "query": ["buying", "maint", "lug_boot", "persons", "safety"]},
+    {"evidence": {"car": "acc"}, "query": ["buying", "maint", "lug_boot", "persons", "safety"]},
+    {"evidence": {"car": "vgood"}, "query": ["buying", "maint", "lug_boot", "persons", "safety"]},
+    {"evidence": {"car": "good"}, "query": ["buying", "maint", "lug_boot", "persons", "safety"]}
+]
+
+# Perform diagnostic reasoning for each scenario
+for i, scenario in enumerate(scenarios, 1):
+    evidence = scenario["evidence"]
+    queries = scenario["query"]
+    print(f"Scenario {i}: Evidence={evidence}")
+    for query in queries:
+        result = inference.query(variables=[query], evidence=evidence)
+        print(f"Query: {query}")
+        print(result, "\n")
+
+parent_nodes = ["buying", "maint", "lug_boot", "safety"]
+
+print("Baseline Probabilities:")
+for parent in parent_nodes:
+    result = inference.query(variables=[parent])
+    print(f"Query: {parent}")
+    print(result, "\n")
+
+
+    # Define scenarios for intercausal reasoning
+scenarios = [
+    {'evidence': {'car': 'acc', 'buying': 'low'}, 'query': ['safety', 'maint','lug_boot']},
+    {'evidence': {'car': 'unacc', 'safety': 'low'}, 'query': ['buying', 'maint','lug_boot']},
+    {'evidence': {'car': 'vgood', 'maint': 'low'}, 'query': ['lug_boot', 'safety','buying']},
+    {'evidence': {'car': 'good', 'lug_boot': 'big'}, 'query': ['buying', 'safety','maint']}
+]
+
+# Run inference for each scenario and display the results
+for i, scenario in enumerate(scenarios):
+    evidence = scenario['evidence']
+    query = scenario['query']
+
+    print(f"Scenario {i+1}: Evidence={evidence}")
+    for var in query:
+        result = inference.query(variables=[var], evidence=evidence)
+        print(f"\nQuery: {var}\n{result}")
+    print("-" * 50)
+
+
+
+sampler = BayesianModelSampling(model)
+
+# ------------------------------
+# Maximum A Posteriori (MAP)
+# ------------------------------
+# Query 1: MAP for `buying`, `maint`, and `safety` given `car = vgood`
+map_query_1 = inference.map_query(variables=["buying", "maint", "safety"], evidence={"car": "vgood"})
+print("MAP Query 1:", map_query_1)
+
+
+
+# Query 3: MAP for `car` given favorable conditions
+map_query_3 = inference.map_query(variables=["car"], evidence={"buying": "low", "maint": "low", "safety": "high"})
+print("MAP Query 3:", map_query_3)
+
+# ------------------------------
+# Sensitivity Analysis
+# ------------------------------
+# Query 1: Probability of `car = vgood` as `maint` shifts from `low` to `high`
+sensitivity_results = {}
+for maint_level in ["low", "med", "high"]:
+    prob_vgood = inference.query(variables=["car"], evidence={"maint": maint_level, "buying": "low", "safety": "high"})
+    sensitivity_results[maint_level] = prob_vgood.values[3]  # Index for 'vgood'
+
+print("Sensitivity Analysis - Maint Levels:", sensitivity_results)
+
+# Query 2: Probability of `car = acc` as `lug_boot` changes
+sensitivity_results_lug_boot = {}
+for lug_boot_size in ["small", "med", "big"]:
+    prob_acc = inference.query(variables=["car"], evidence={"lug_boot": lug_boot_size, "persons": "4"})
+    sensitivity_results_lug_boot[lug_boot_size] = prob_acc.values[1]  # Index for 'acc'
+
+print("Sensitivity Analysis - Lug Boot:", sensitivity_results_lug_boot)
+
+# ------------------------------
+# Approximate Reasoning
+# ------------------------------
+# Query 1: Approximate probability of `car = acc`
+sample_data = sampler.likelihood_weighted_sample(evidence={"safety": "med", "persons": "more"}, size=1000)
+approx_acc_prob = len(sample_data[sample_data["car"] == "acc"]) / len(sample_data)
+print("Approximate Probability (car = acc):", approx_acc_prob)
+
+# Query 2: Simulated probability of `car = vgood` with random feature distribution
+random_samples = sampler.forward_sample(size=1000)
+vgood_prob = len(random_samples[random_samples["car"] == "vgood"]) / len(random_samples)
+print("Simulated Probability (car = vgood):", vgood_prob)
+
+## Query 3: Approximate probability of `car = good`
+sample_data_good = sampler.likelihood_weighted_sample(evidence={"lug_boot": "small", "buying": "med"}, size=1000)
+approx_good_prob = len(sample_data_good[sample_data_good["car"] == "good"]) / len(sample_data_good)
+print("Approximate Probability (car = good):", approx_good_prob)
