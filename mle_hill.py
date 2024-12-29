@@ -183,3 +183,47 @@ for i, scenario in enumerate(scenarios, 1):
     result = inference.query(variables=[query], evidence=evidence)
     print(f"Scenario {i}: Evidence={evidence}, Query={query}")
     print(result, "\n")
+
+
+sampler = BayesianModelSampling(model)
+# MAP Query 1
+map_result_1 = inference.map_query(variables=['maint', 'lug_boot'], evidence={'car': 'good', 'safety': 'med'})
+print("MAP Result 1 (maint and lug_boot for car='good' and safety='med'):", map_result_1)
+
+# MAP Query 2
+map_result_2 = inference.map_query(variables=['persons', 'doors'], evidence={'car': 'unacc', 'lug_boot': 'small'})
+print("MAP Result 2 (persons and doors for car='unacceptable' and lug_boot='small'):", map_result_2)
+
+# MAP Query 3
+map_result_3 = inference.map_query(variables=['car'], evidence={'safety': 'high', 'persons': 'more', 'maint': 'low'})
+print("MAP Result 3 (car classification for safety='high', persons='more', and maint='low'):", map_result_3)
+
+# MAP Query 4
+map_result_4 = inference.map_query(variables=['buying', 'lug_boot'], evidence={'maint': 'vhigh', 'safety': 'high'})
+print("MAP Result 4 (buying and lug_boot for maint='vhigh' and safety='high'):", map_result_4)
+print("Sensitive Analysis")
+v_evidence = [("maint", "med")]
+samples_sa1 = sampler.likelihood_weighted_sample(evidence=v_evidence, size=1000)
+prob_lug_boot_sa1 = samples_sa1.groupby("lug_boot")["buying"].value_counts(normalize=True)
+print(f"Sensitivity 1 (dependency between buying and lug_boot for maint='med'):\n{prob_lug_boot_sa1}")
+
+v_evidence = [("safety", "high"), ("buying", "low")]
+samples_sa2 = sampler.likelihood_weighted_sample(evidence=v_evidence, size=1000)
+prob_doors_sa2 = samples_sa2.groupby("doors")["persons"].value_counts(normalize=True)
+print(f"Sensitivity 2 (relationship between doors and persons for safety='high' and buying='low'):\n{prob_doors_sa2}")
+
+v_evidence = [("persons", "4"), ("doors", "4")]
+samples_sa3 = sampler.likelihood_weighted_sample(evidence=v_evidence, size=1000)
+prob_lug_boot_sa3 = samples_sa3.groupby("maint")["lug_boot"].value_counts(normalize=True)
+print(f"Sensitivity 3 (impact of maint on lug_boot for persons='4' and doors='4'):\n{prob_lug_boot_sa3}")
+
+v_evidence = [("buying", "vhigh")]
+samples_sa4 = sampler.likelihood_weighted_sample(evidence=v_evidence, size=1000)
+prob_safety_sa4 = samples_sa4.groupby("doors")["safety"].value_counts(normalize=True)
+print(f"Sensitivity 4 (relationship between safety and doors for buying='vhigh'):\n{prob_safety_sa4}")
+
+
+v_evidence = [("maint", "low"), ("doors", "5more")]
+samples_sa5 = sampler.likelihood_weighted_sample(evidence=v_evidence, size=1000)
+prob_lug_boot_sa5 = samples_sa5.groupby("persons")["lug_boot"].value_counts(normalize=True)
+print(f"Sensitivity 5 (interaction between lug_boot and persons for maint='low' and doors='5more'):\n{prob_lug_boot_sa5}")
