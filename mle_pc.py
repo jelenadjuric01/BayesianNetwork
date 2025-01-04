@@ -57,7 +57,8 @@ plt.savefig(output_path, format='png', bbox_inches='tight')
 plt.close()  # Close the plot to avoid displaying it
 
 print(f"Network visualization saved as '{output_path}'")
-
+model_path = 'models/mle_pc_model.bif'
+model.save(model_path)
 G = DAG()
 G.add_nodes_from(model.nodes())
 G.add_edges_from(model.edges())
@@ -209,7 +210,7 @@ print("Sensitivity Analysis - Lug Boot:", sensitivity_results_lug_boot)
 # Approximate Reasoning
 # ------------------------------
 # Query 1: Approximate probability of `car = acc`
-sample_data = sampler.likelihood_weighted_sample(evidence={"safety": "med", "persons": "more"}, size=1000)
+sample_data = sampler.likelihood_weighted_sample(evidence=[("safety","med"), ("persons", "more")], size=1000)
 approx_acc_prob = len(sample_data[sample_data["car"] == "acc"]) / len(sample_data)
 print("Approximate Probability (car = acc):", approx_acc_prob)
 
@@ -219,6 +220,6 @@ vgood_prob = len(random_samples[random_samples["car"] == "vgood"]) / len(random_
 print("Simulated Probability (car = vgood):", vgood_prob)
 
 ## Query 3: Approximate probability of `car = good`
-sample_data_good = sampler.likelihood_weighted_sample(evidence={"lug_boot": "small", "buying": "med"}, size=1000)
+sample_data_good = sampler.likelihood_weighted_sample(evidence=[("lug_boot", "small"),( "buying","med")], size=1000)
 approx_good_prob = len(sample_data_good[sample_data_good["car"] == "good"]) / len(sample_data_good)
 print("Approximate Probability (car = good):", approx_good_prob)
